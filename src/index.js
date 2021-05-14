@@ -1,52 +1,46 @@
 import Discord from 'discord.js'
-import Config from '../config'
+import Sounds from './sounds'
 import FirebaseRealtimeService from './firebase/firebase-realtime-service'
 import FirebaseFirestoreService from './firebase/firebase-firestore-service'
+import DiscordUtils from './discord/utils'
 
-const monitoringRef = FirebaseRealtimeService.getRef()
-const client = new Discord.Client()
-client.login(Config.BOT_TOKEN)
+(async () => {
+  try {
+    const monitoringRef = FirebaseRealtimeService.getRef()
+    const sounds = await Sounds.sync()
+    const botId = (await FirebaseFirestoreService.configurations()).data().bot_id
+    const client = new Discord.Client()
+    client.login(botId)
+    let conn = null
+    let lastSoundPlayed = null
 
-const findChannelByDiscordUser = (guilds, userId = 'iamFurukawa#1968') => {
-  //Nadaletsky#7206
-  const [username, discriminator] = userId.split('#')
-  let guildFounded = null
-  let channelFounded = null
-  let memberFounded = null
+    client.on("ready", async () => {
+      monitoringRef.on('value', async (snap) => {
+        const [uuid, userId] = (snap.val().RequestSoundMonitoring).split(' ')
+        if (uuid === 'awaiting-request-song') return
 
-  guilds.forEach(guild => {
-    guild.channels.cache.forEach(channel => {
-      if (channel.type === 'voice') {
-        channel.members.forEach(member => {
-          if (member.user.username === username && member.user.discriminator === discriminator) {
-            guildFounded = guild
-            channelFounded = channel
-            memberFounded = member
-          }
-        })
-      }
+        const location = DiscordUtils.findChannelByDiscordUser(client.guilds.cache, 'iamFurukawa#1968'/*userId*/)
+        if (!location) {
+          console.log(`User ${userId} not found.`)
+          await FirebaseRealtimeService.resetRequestSoundMonitoring()
+          return
+        }
+
+        conn = await location.channel.join()
+        conn.voice.setSelfDeaf(true)
+
+        lastSoundPlayed = sounds.soundsFirebase.find(sound => sound.uuid === uuid)
+        console.log(`User ${userId} request sound: ${lastSoundPlayed.displayName}`)
+        conn.play(sounds.path + lastSoundPlayed.originalName)
+
+        await FirebaseFirestoreService.incrementPlayedTimes(lastSoundPlayed.uuid)
+        await FirebaseRealtimeService.resetRequestSoundMonitoring()
+        //await guild.channels.cache.filter(channel => channel.type === 'voice').get('759035649998454794').leave()//sair
+      })
     })
-  })
 
-  return { guild: guildFounded, channel: channelFounded, member: memberFounded }
-}
-
-client.on("ready", async () => {
-  const fiuk = '[Meme] PaAai (Fiuk).mp3'
-  const novo = '[Meme][+18] É O FAMOSO BUCETÃO.mp3'
-
-  //let sounds = await FirebaseFirestoreService.get()
-  //console.log(sounds.docs)
-
-  monitoringRef.on('value', async (snap) => {
-    console.log(snap.val().RequestSoundMonitoring);
-    const location = findChannelByDiscordUser(client.guilds.cache)
-    //tratar location null
-    const conn = await location.channel.join()//entrar
-    conn.voice.setSelfDeaf(true)
-    conn.play('C:\\Users\\vinicius.carvalho\\Google Drive\\audios\\' + novo)
-    //await guild.channels.cache.filter(channel => channel.type === 'voice').get('759035649998454794').leave()//sair
-  })
-})
-
-console.log('Running...')
+    console.log('Furuksong bot is up!')
+  } catch (e) {
+    console.log(`An error occurs in the main function: ${e}`)
+  }
+})()
