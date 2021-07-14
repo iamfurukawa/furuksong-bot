@@ -6,10 +6,18 @@
   "author": "Vinícius Furukawa Carvalho",
   "private": true,
   "scripts": {
-    "start": "node ./src/index.js",
+    "start": "babel-node ./src/index.js",
     "dev": "nodemon --exec babel-node ./src/index.js"
   },
   "dependencies": {
+    "@babel/cli": "^7.14.3",
+    "@babel/core": "^7.14.3",
+    "@babel/node": "^7.14.2",
+    "@babel/plugin-transform-runtime": "^7.14.3",
+    "@babel/polyfill": "^7.12.1",
+    "@babel/preset-env": "^7.14.4",
+    "@babel/register": "^7.13.16",
+    "@babel/runtime": "^7.14.0",
     "@discordjs/opus": "^0.5.0",
     "discord.js": "^12.5.3",
     "ffmpeg-static": "^4.3.0",
@@ -17,9 +25,6 @@
     "uuid": "^8.3.2"
   },
   "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-preset-env": "^1.7.0",
-    "babel-preset-latest": "^6.24.1",
     "nodemon": "^2.0.7"
   },
   "engines": {
